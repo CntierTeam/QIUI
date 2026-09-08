@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux BLE build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libdbus-1-dev libudev-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        run: cargo test --locked
+
+      - name: cargo clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: CLI smoke (offline)
+        run: |
+          set -euo pipefail
+          cargo build --locked --quiet
+          ./target/debug/qiui profiles >/dev/null
+          HEX="$(./target/debug/qiui crypto encrypt-api '{"hello":"world"}')"
+          ./target/debug/qiui crypto decrypt-api "$HEX" >/dev/null
+          ./target/debug/qiui write --mock --address AA:BB:CC:DD:EE:FF \
+            --hex 06010101000000000000000000000000

@@ -1,0 +1,12 @@
+/target
+**/*.rs.bk
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local reverse/analysis dumps — not part of the published CLI
+/apk-*/
+/apk-decompiled/
+/tools/
+/refs/
