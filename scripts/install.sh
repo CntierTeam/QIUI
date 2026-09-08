@@ -104,15 +104,53 @@ detect_target() {
     Linux/aarch64|Linux/arm64) echo "aarch64-unknown-linux-gnu" ;;
     Darwin/arm64|Darwin/aarch64) echo "aarch64-apple-darwin" ;;
     Darwin/x86_64) echo "x86_64-apple-darwin" ;;
+    MINGW*|MSYS*|CYGWIN*)
+      case "${arch}" in
+        x86_64|amd64) echo "x86_64-pc-windows-msvc" ;;
+        *)
+          echo "error: unsupported Windows arch: ${arch}" >&2
+          exit 1
+          ;;
+      esac
+      ;;
     *)
-      echo "error: unsupported platform: ${os}/${arch}" >&2
-      exit 1
+      # Git Bash / MSYS report like MINGW64_NT-10.0/x86_64
+      case "${os}" in
+        MINGW*|MSYS*|CYGWIN*)
+          case "${arch}" in
+            x86_64|amd64) echo "x86_64-pc-windows-msvc" ;;
+            *)
+              echo "error: unsupported Windows arch: ${arch}" >&2
+              exit 1
+              ;;
+          esac
+          ;;
+        *)
+          echo "error: unsupported platform: ${os}/${arch}" >&2
+          echo "hint: on Windows use scripts/install.ps1" >&2
+          exit 1
+          ;;
+      esac
       ;;
   esac
 }
 
+bin_name() {
+  case "$(detect_target)" in
+    *-windows-*) echo "qiui.exe" ;;
+    *) echo "qiui" ;;
+  esac
+}
+
 uninstall_all() {
-  if [[ -e "${BIN_DIR}/qiui" || -L "${BIN_DIR}/qiui" ]]; then
+  local name
+  name="$(bin_name 2>/dev/null || echo qiui)"
+  if [[ -e "${BIN_DIR}/${name}" || -L "${BIN_DIR}/${name}" ]]; then
+    rm -f "${BIN_DIR}/${name}"
+    echo "removed ${BIN_DIR}/${name}"
+  fi
+  # also remove unix name if present on mixed installs
+  if [[ "${name}" != "qiui" && ( -e "${BIN_DIR}/qiui" || -L "${BIN_DIR}/qiui" ) ]]; then
     rm -f "${BIN_DIR}/qiui"
     echo "removed ${BIN_DIR}/qiui"
   fi
@@ -128,7 +166,6 @@ if [[ "${UNINSTALL}" -eq 1 ]]; then
 fi
 
 need_cmd curl
-need_cmd tar
 need_cmd uname
 
 TMP="$(mktemp -d)"
@@ -163,17 +200,25 @@ install_skill_dir() {
 }
 
 install_from_source() {
-  local script_dir repo_root
+  local script_dir repo_root built name
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   repo_root="$(cd "${script_dir}/.." && pwd)"
+  name="$(bin_name)"
 
   if [[ "${INSTALL_BIN}" -eq 1 ]]; then
     need_cmd cargo
     (cd "${repo_root}" && cargo build --release)
+    if [[ -f "${repo_root}/target/release/qiui.exe" ]]; then
+      built="${repo_root}/target/release/qiui.exe"
+      name="qiui.exe"
+    else
+      built="${repo_root}/target/release/qiui"
+      name="qiui"
+    fi
     mkdir -p "${BIN_DIR}"
-    ensure_replace "${BIN_DIR}/qiui"
-    install -m 0755 "${repo_root}/target/release/qiui" "${BIN_DIR}/qiui"
-    echo "binary: ${BIN_DIR}/qiui"
+    ensure_replace "${BIN_DIR}/${name}"
+    install -m 0755 "${built}" "${BIN_DIR}/${name}"
+    echo "binary: ${BIN_DIR}/${name}"
   fi
 
   if [[ "${INSTALL_SKILL}" -eq 1 ]]; then
@@ -213,9 +258,16 @@ install_from_release() {
   echo "release: ${REPO}@${tag}"
 
   if [[ "${INSTALL_BIN}" -eq 1 ]]; then
-    local target asset url
+    local target asset url extracted_bin name
     target="$(detect_target)"
-    asset="qiui-${target}.tar.gz"
+    name="$(bin_name)"
+    if [[ "${target}" == *-windows-* ]]; then
+      asset="qiui-${target}.zip"
+      need_cmd unzip
+    else
+      asset="qiui-${target}.tar.gz"
+      need_cmd tar
+    fi
     url="$(asset_url_by_name "${TMP}/release.json" "${asset}")"
     if [[ -z "${url}" ]]; then
       echo "error: asset not found in release: ${asset}" >&2
@@ -225,14 +277,18 @@ install_from_release() {
     fi
     echo "downloading ${asset}"
     http_get "${url}" "${TMP}/${asset}"
-    tar -C "${TMP}" -xzf "${TMP}/${asset}"
-    local extracted_bin
-    extracted_bin="$(find "${TMP}" -type f -name qiui | head -n1)"
+    if [[ "${asset}" == *.zip ]]; then
+      unzip -q "${TMP}/${asset}" -d "${TMP}"
+    else
+      tar -C "${TMP}" -xzf "${TMP}/${asset}"
+    fi
+    extracted_bin="$(find "${TMP}" -type f \( -name qiui -o -name qiui.exe \) | head -n1)"
     [[ -n "${extracted_bin}" ]] || { echo "error: qiui binary missing in archive" >&2; exit 1; }
+    name="$(basename "${extracted_bin}")"
     mkdir -p "${BIN_DIR}"
-    ensure_replace "${BIN_DIR}/qiui"
-    install -m 0755 "${extracted_bin}" "${BIN_DIR}/qiui"
-    echo "binary: ${BIN_DIR}/qiui"
+    ensure_replace "${BIN_DIR}/${name}"
+    install -m 0755 "${extracted_bin}" "${BIN_DIR}/${name}"
+    echo "binary: ${BIN_DIR}/${name}"
   fi
 
   if [[ "${INSTALL_SKILL}" -eq 1 ]]; then
@@ -243,6 +299,7 @@ install_from_release() {
       echo "error: asset not found in release: ${skill_asset}" >&2
       exit 1
     fi
+    need_cmd tar
     echo "downloading ${skill_asset}"
     http_get "${skill_url}" "${TMP}/${skill_asset}"
     mkdir -p "${TMP}/skill"

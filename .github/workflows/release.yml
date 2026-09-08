@@ -28,6 +28,8 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
           # Note: Intel macOS runners are often unavailable; skip x86_64-apple-darwin.
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
 
@@ -49,12 +51,12 @@ jobs:
       - name: Build release binary
         run: cargo build --locked --release --target ${{ matrix.target }}
 
-      - name: Package binary
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
           BIN="target/${{ matrix.target }}/release/qiui"
-          if [[ "${{ runner.os }}" == "Windows" ]]; then BIN="${BIN}.exe"; fi
           STAGE="qiui-${{ matrix.target }}"
           mkdir -p "dist/${STAGE}"
           cp "${BIN}" "dist/${STAGE}/"
@@ -62,12 +64,36 @@ jobs:
           tar -C dist -czf "dist/${STAGE}.tar.gz" "${STAGE}"
           (cd dist && sha256sum "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256")
 
-      - uses: actions/upload-artifact@v4
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $stage = "qiui-${{ matrix.target }}"
+          New-Item -ItemType Directory -Force -Path "dist/$stage" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/qiui.exe" "dist/$stage/"
+          Copy-Item README.md, LICENSE "dist/$stage/"
+          Compress-Archive -Path "dist/$stage" -DestinationPath "dist/$stage.zip"
+          Get-FileHash "dist/$stage.zip" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $stage.zip" } |
+            Out-File -Encoding ascii "dist/$stage.zip.sha256"
+
+      - name: Upload Unix package
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
         with:
           name: qiui-${{ matrix.target }}
           path: |
             dist/qiui-${{ matrix.target }}.tar.gz
             dist/qiui-${{ matrix.target }}.tar.gz.sha256
+
+      - name: Upload Windows package
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: qiui-${{ matrix.target }}
+          path: |
+            dist/qiui-${{ matrix.target }}.zip
+            dist/qiui-${{ matrix.target }}.zip.sha256
 
   skill:
     name: package skill
@@ -120,8 +146,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          find artifacts -type f \( -name '*.tar.gz' -o -name '*.sha256' \) -print -exec cp -v {} release-assets/ \;
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) -print -exec cp -v {} release-assets/ \;
           cp scripts/install.sh release-assets/install.sh
+          cp scripts/install.ps1 release-assets/install.ps1
           ls -la release-assets
 
       - name: Create GitHub Release

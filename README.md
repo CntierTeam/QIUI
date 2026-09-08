@@ -17,12 +17,22 @@ curl -fsSL https://raw.githubusercontent.com/CntierTeam/QIUI/main/scripts/instal
 - 二进制 → `~/.local/bin/qiui`
 - Codex skill → `~/.codex/skills/qiui`
 
+Windows（PowerShell）：
+
+```powershell
+irm https://raw.githubusercontent.com/CntierTeam/QIUI/main/scripts/install.ps1 | iex
+# 或指定版本：
+.\scripts\install.ps1 -Version v0.1.1 -Force
+```
+
+默认安装到 `%LOCALAPPDATA%\qiui\bin\qiui.exe`（脚本会提示把该目录加入 PATH）。
+
 常用选项：
 
 ```bash
 # 指定版本
 curl -fsSL https://raw.githubusercontent.com/CntierTeam/QIUI/main/scripts/install.sh \
-  | bash -s -- --version v0.1.0 --force
+  | bash -s -- --version v0.1.1 --force
 
 # 只装二进制 / 只装 skill
 bash scripts/install.sh --bin-only
@@ -312,15 +322,16 @@ qiui --base https://appapi.qiuitoy.com --token '...' --verbose devices
 Release 产物：
 
 - `qiui-<target>.tar.gz` — 预编译二进制（linux x86_64/aarch64、macOS aarch64）
+- `qiui-x86_64-pc-windows-msvc.zip` — Windows x86_64（含 `qiui.exe`）
 - `qiui-skill.tar.gz` — Codex skill
-- `install.sh` — 安装脚本副本
+- `install.sh` / `install.ps1` — 安装脚本副本
 - 对应 `.sha256`
 
 打 tag 发版：
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 ## 协议与开发

@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -40,11 +40,14 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: CLI smoke (offline)
+        shell: bash
         run: |
           set -euo pipefail
           cargo build --locked --quiet
-          ./target/debug/qiui profiles >/dev/null
-          HEX="$(./target/debug/qiui crypto encrypt-api '{"hello":"world"}')"
-          ./target/debug/qiui crypto decrypt-api "$HEX" >/dev/null
-          ./target/debug/qiui write --mock --address AA:BB:CC:DD:EE:FF \
+          BIN=./target/debug/qiui
+          if [[ -f "${BIN}.exe" ]]; then BIN="${BIN}.exe"; fi
+          "${BIN}" profiles >/dev/null
+          HEX="$("${BIN}" crypto encrypt-api '{"hello":"world"}')"
+          "${BIN}" crypto decrypt-api "$HEX" >/dev/null
+          "${BIN}" write --mock --address AA:BB:CC:DD:EE:FF \
             --hex 06010101000000000000000000000000
