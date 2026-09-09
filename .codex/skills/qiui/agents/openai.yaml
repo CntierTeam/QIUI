@@ -1,6 +1,6 @@
 interface:
   display_name: "QIUI"
-  short_description: "QIUI 多产品 CLI 怎么用"
-  default_prompt: "按 $qiui 帮我使用 qiui：登录、products、run（Cellmate/KeyPod/PearFlower/项圈等）、scan/write。只讲产品命令用法。"
+  short_description: "QIUI CLI：上锁/电击等产品用法"
+  default_prompt: "按 $qiui 回答产品能力并给出可执行的 qiui 命令（含电击/上锁）。永远写 qiui 不要写 SAMPLE；直接说能不能、怎么做，不要用 Mock 绕开用户的真机意图。"
 policy:
   allow_implicit_invocation: true
