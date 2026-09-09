@@ -363,8 +363,8 @@ Release 产物：
 打 tag 发版：
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 ## Skill

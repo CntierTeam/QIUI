@@ -1,6 +1,6 @@
 [package]
 name = "qiui"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Independent QIUI Cellmate BLE/API control CLI"
 license = "GPL-3.0-only"

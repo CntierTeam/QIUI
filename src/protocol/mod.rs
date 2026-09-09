@@ -10,20 +10,24 @@ fn u(s: &str) -> Uuid {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Profile {
-    /// Cellmate Gen2/Gen3 — `t7/g3`, `wb/z2`
+    /// Cellmate Gen2/Gen3 / KeyPod2 (type 1/10/11) — fee7
     Cellmate,
-    /// Metal / KeyPod metal (default) — `x7/j0`, `f8/u`
+    /// Tail / GenMetal / PulseBird / ShockGenMetal / Femboy (type 12–15,19) — fee5
     Fee5,
-    /// KeyPod metal when type==20 — `x7/j0`
+    /// KeyPod Metal when type==20 — 0b30
     KeyPodMetal20,
-    /// PearFlower Three — `k7/p0`
+    /// Classic KeyPod (type 6) — fff0
+    KeyPod,
+    /// PearFlower / AnalPlug2/3 (type 9/18) — ac3a
     PearFlower3,
-    /// GenMetal / shake family — `o7/j1`
+    /// Cellmate Gen2 CG family (type 4/7) — ae3a
     Ae3,
-    /// Another lock family — `c8/m0`
+    /// Masturbator / airplane cup (type 16) — 8ac0
     Ac8,
-    /// PulseBird-ish — `u7/d0`
+    /// ThrillCage OEM (type 21) — ffa0
     Ffa0,
+    /// Little Devil / electric collar 项圈 (type 3)
+    Collar,
 }
 
 impl Profile {
@@ -32,10 +36,12 @@ impl Profile {
             Profile::Cellmate,
             Profile::Fee5,
             Profile::KeyPodMetal20,
+            Profile::KeyPod,
             Profile::PearFlower3,
             Profile::Ae3,
             Profile::Ac8,
             Profile::Ffa0,
+            Profile::Collar,
         ]
     }
 
@@ -44,10 +50,12 @@ impl Profile {
             Profile::Cellmate => "cellmate",
             Profile::Fee5 => "fee5",
             Profile::KeyPodMetal20 => "keypod-metal-20",
+            Profile::KeyPod => "keypod",
             Profile::PearFlower3 => "pearflower3",
             Profile::Ae3 => "ae3",
             Profile::Ac8 => "8ac0",
             Profile::Ffa0 => "ffa0",
+            Profile::Collar => "collar",
         }
     }
 
@@ -60,10 +68,12 @@ impl Profile {
             Profile::Cellmate => u("0000fee7-0000-1000-8000-00805f9b34fb"),
             Profile::Fee5 => u("0000fee5-0000-1000-8000-00805f9b34fb"),
             Profile::KeyPodMetal20 => u("00000b30-0000-1000-8000-00805f9b34fb"),
+            Profile::KeyPod => u("0000fff0-0000-1000-8000-00805f9b34fb"),
             Profile::PearFlower3 => u("0000ac3a-0000-1000-8000-00805f9b34fb"),
             Profile::Ae3 => u("0000ae3a-0000-1000-8000-00805f9b34fb"),
             Profile::Ac8 => u("00008ac0-0000-1000-8000-00805f9b34fb"),
             Profile::Ffa0 => u("0000ffa0-0000-1000-8000-00805f9b34fb"),
+            Profile::Collar => u("8653000a-43e6-47b7-9cb0-5fc21d4ae340"),
         }
     }
 
@@ -72,10 +82,12 @@ impl Profile {
             Profile::Cellmate => u("000036f5-0000-1000-8000-00805f9b34fb"),
             Profile::Fee5 => u("00003ff5-0000-1000-8000-00805f9b34fb"),
             Profile::KeyPodMetal20 => u("00000b32-0000-1000-8000-00805f9b34fb"),
+            Profile::KeyPod => u("0000fff1-0000-1000-8000-00805f9b34fb"),
             Profile::PearFlower3 => u("0000ac3b-0000-1000-8000-00805f9b34fb"),
             Profile::Ae3 => u("0000ae3b-0000-1000-8000-00805f9b34fb"),
             Profile::Ac8 => u("00008ac1-0000-1000-8000-00805f9b34fb"),
             Profile::Ffa0 => u("0000ffa1-0000-1000-8000-00805f9b34fb"),
+            Profile::Collar => u("8653000c-43e6-47b7-9cb0-5fc21d4ae340"),
         }
     }
 
@@ -84,10 +96,12 @@ impl Profile {
             Profile::Cellmate => u("000036f6-0000-1000-8000-00805f9b34fb"),
             Profile::Fee5 => u("00003ff6-0000-1000-8000-00805f9b34fb"),
             Profile::KeyPodMetal20 => u("00000b31-0000-1000-8000-00805f9b34fb"),
+            Profile::KeyPod => u("0000fff2-0000-1000-8000-00805f9b34fb"),
             Profile::PearFlower3 => u("0000ac3c-0000-1000-8000-00805f9b34fb"),
             Profile::Ae3 => u("0000ae3c-0000-1000-8000-00805f9b34fb"),
             Profile::Ac8 => u("00008ac2-0000-1000-8000-00805f9b34fb"),
             Profile::Ffa0 => u("0000ffa2-0000-1000-8000-00805f9b34fb"),
+            Profile::Collar => u("8653000b-43e6-47b7-9cb0-5fc21d4ae340"),
         }
     }
 
