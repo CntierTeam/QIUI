@@ -1,6 +1,6 @@
 interface:
   display_name: "QIUI"
-  short_description: "QIUI CLI：上锁/电击等产品用法"
-  default_prompt: "按 $qiui 回答产品能力并给出可执行的 qiui 命令（含电击/上锁）。永远写 qiui 不要写 SAMPLE；直接说能不能、怎么做，不要用 Mock 绕开用户的真机意图。"
+  short_description: "代跑 qiui：电击/上锁/扫写"
+  default_prompt: "按 $qiui 当操作员：用户要电击/上锁/控设备时，用 shell 直接执行 qiui（devices→run→scan/write），不要只拼命令或发 SAMPLE 教程。缺凭证/toyUid/MAC 再问一句然后继续跑。"
 policy:
   allow_implicit_invocation: true
