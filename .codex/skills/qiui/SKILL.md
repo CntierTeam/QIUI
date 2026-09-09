@@ -1,234 +1,201 @@
 ---
 name: qiui
 description: >-
-  Develop and operate the independent QIUI (Cellmate) Rust CLI (`qiui`: cloud
-  API + BLE, protocol-compatible with app 7.0.51). Covers EncryptUtil AES-CBC,
-  discover-api / login / feign calls, GATT profiles (fee7/36f5…), cloud→hex write
-  path, and mock BLE smoke. Trigger on: QIUI, Cellmate, qiui CLI, fee7, 36f5,
-  EncryptUtil, toyCellmateBluetooth, getToyToken, BLUETOOTH_COMMAND, nokelock.
+  Use the independent QIUI (Cellmate) CLI (`qiui`) for cloud login, bound toys,
+  cloud→BLE hex commands, and GATT write/scan. Prefer installed `qiui` over
+  rebuilding. Trigger on: QIUI, Cellmate, qiui CLI, get-toy-token, close-lock,
+  discover-api, write --mock, fee7, 36f5, toyUid, QIUI_TOKEN.
 license: GPL-3.0-only
 metadata:
-  short-description: Independent QIUI Cellmate API/BLE CLI
+  short-description: Use QIUI/Cellmate CLI (login, BLE write)
 ---
 
-# QIUI
+# QIUI — 使用指南
 
-Independent Rust CLI for QIUI (Cellmate) **cloud API + BLE**. Repo root is the Cargo package `qiui`.
-Protocol details live in this skill (not as project `docs/*.md`).
+`qiui` 是独立的 QIUI（Cellmate）**云端 API + BLE** 控制 CLI（协议对齐 app `7.0.51`）。
 
-## Hard rules
+本 skill 教 **怎么用工具**，不是怎么改源码。需要协议细节时再看 [references/protocol.md](references/protocol.md)。
 
-1. Prefer **boring code**. No speculative abstractions or drive-by refactors.
-2. **GATT UUIDs / Nokelock plaintext builders** live only in `src/protocol/`. Change profiles → keep `qiui profiles` output aligned.
-3. **API / password / BT-command AES** lives only in `src/crypto.rs`. Keys/IV must stay compatible with QIUI `EncryptUtil` + `libsecret_jni`.
-4. **BLE I/O** only through `ble::Session` / `ble::MockSession`. CLI must not call `btleplug` directly.
-5. **Login** persists `token` + identity to `~/.config/qiui/config.toml` (`src/config.rs`). Authed commands need that token (or `--token` / `QIUI_TOKEN`).
-6. Do **not** reintroduce a repo-root `docs/PROTOCOL.md`; protocol reference stays in this skill.
+## 使用原则
 
-## Layout
+1. 优先用 **已安装的 `qiui`**（`PATH` 上的二进制）。不要默认去 `cargo build` / 改仓库。
+2. **不要编造参数**；不确定就跑 `qiui --help` / `qiui <cmd> --help`。
+3. 需要登录态的命令：`devices`、`get-toy-token`、`close-lock`、`decry-notify`。缺 token 就先 `login`，或传 `--token` / `QIUI_TOKEN`。
+4. 真机 BLE 写之前，先用云端拿到 **明文 hex**（`get-toy-token` / `close-lock`），再 `write`。无硬件时用 `--mock` 冒烟。
+5. 对用户回复用对方语言；命令与路径保持英文原样。
 
-| Path | Role |
+## 安装
+
+仓库：https://github.com/CntierTeam/QIUI
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/CntierTeam/QIUI/main/scripts/install.sh | bash
+```
+
+```powershell
+# Windows
+irm https://raw.githubusercontent.com/CntierTeam/QIUI/main/scripts/install.ps1 | iex
+```
+
+默认：
+
+| 平台 | 二进制 | Codex skill（可选） |
+|------|--------|---------------------|
+| Unix | `~/.local/bin/qiui` | `~/.codex/skills/qiui` |
+| Windows | `%LOCALAPPDATA%\qiui\bin\qiui.exe` | `%USERPROFILE%\.codex\skills\qiui` |
+
+确保对应 `bin` 目录在 `PATH` 里，然后：`qiui profiles`。
+
+指定版本 / 强制覆盖：`bash … --version v0.1.1 --force`；PowerShell：`-Version v0.1.1 -Force`。
+
+## 配置
+
+| 来源 | 说明 |
 |------|------|
-| `src/main.rs` | clap subcommands |
-| `src/api.rs` | discover, encrypted feign POST, Cellmate BT helpers |
-| `src/crypto.rs` | AES-256-CBC keys/IV + encrypt/decrypt helpers |
-| `src/protocol/mod.rs` | GATT `Profile` + optional Nokelock/device AES |
-| `src/ble/mod.rs` | `Session` (btleplug) + `MockSession` |
-| `src/config.rs` | `~/.config/qiui/config.toml` |
+| `~/.config/qiui/config.toml` | `discover-api` / `login` 写入的 `base_url`、`token`、`uid`、`user_id`、`nickname`、`user_name` |
+| `QIUI_BASE` / `QIUI_TOKEN` | 覆盖 base / token |
+| `--base` / `--token` / `--verbose` | 命令行优先 |
 
-## Global flags / config
+解析顺序：**CLI → 环境变量 → config → 内置默认 base**。
 
-| Flag / env | Effect |
-|------------|--------|
-| `--base` / `QIUI_BASE` | API root override |
-| `--token` / `QIUI_TOKEN` | auth token override |
-| `--verbose` | tracing filter `debug` (else `info`) |
-
-Resolution for base/token: **CLI flag → env → `config.toml` → `DEFAULT_BASE`**.
-
-Config path: `~/.config/qiui/config.toml` fields: `base_url`, `token`, `uid`, `user_id`, `nickname`, `user_name`.
-
-Authed commands (`devices`, `get-toy-token`, `close-lock`, `decry-notify`): bail if no token.
-
-## Common workflows
-
-### Build / run
+## 典型流程
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
-# export https_proxy=http://127.0.0.1:7897   # if needed
-cargo build --release
-cargo run -- discover-api
-cargo run -- login -u you@example.com -p 'secret'
-cargo run -- write --mock --address AA:BB:CC:DD:EE:FF --hex 06010101deadbeef
+qiui discover-api
+qiui login -u you@example.com -p 'secret'          # 手机号加 --phone
+qiui whoami
+qiui devices                                       # 记下 toyUid
+HEX=$(qiui get-toy-token --toy-uid '<toyUid>')
+qiui scan --seconds 8                              # 真机：找 MAC
+qiui write --address <MAC> --hex "$HEX"            # 或先 --mock 验证
 ```
 
-### Verify (no hardware / optional network)
+关锁类：`HEX=$(qiui close-lock --toy-uid '<toyUid>')`，同样 `write`。
+
+## 命令速查
+
+### 全局
 
 ```bash
-cargo test
-cargo clippy --all-targets -- -D warnings
-cargo run -q -- crypto encrypt-api '{"hello":"world"}'
-cargo run -q -- crypto decrypt-api "$(cargo run -q -- crypto encrypt-api '{"hello":"world"}')"
-cargo run -q -- profiles
-cargo run -q -- write --mock --address AA:BB:CC:DD:EE:FF --hex 06010101000000000000000000000000
+qiui --help
+qiui --verbose <cmd>
+qiui --base https://appapi.qiuitoy.com --token '…' devices
 ```
-
-Live API: `discover-api` → `login` → `whoami` / `devices` → `get-toy-token` / `close-lock` → `write` (or `--mock`).
-
-### Protocol / feature work
-
-1. Crypto change → `src/crypto.rs` + unit tests (key lengths / roundtrip).
-2. New feign path → `src/api.rs` (`post_encrypted`); keep envelope `{state,message,data,timeStamp}`.
-3. New GATT family → `Profile` in `src/protocol/mod.rs`; wire CLI `--profile`.
-4. BLE behavior → `src/ble/mod.rs` only; smoke with `--mock`.
-5. Re-run `cargo test` and mock write smoke.
-
-Keys, hosts, login fields, GATT table, cloud→hex path: read [references/protocol.md](references/protocol.md).
-
-## CLI usage (agent recipes)
-
-Prefer `cargo run -- <cmd>` from repo root unless `qiui` is installed. Do **not** invent flags; source of truth is `src/main.rs` / `qiui <cmd> --help`.
 
 ### `discover-api`
 
-Purpose: fetch & decrypt dynamic API host list.
+拉取并解密动态 API 主机，写入 `base_url`。
 
 ```bash
-cargo run -- discover-api
+qiui discover-api
 ```
-
-Writes `base_url` to config. Prints `base=`, `http_url=`, `http_image=`, `http_chat=`. Next: `login`.
 
 ### `login`
 
-Purpose: password login; persist session.
-
-| Arg | Required | Notes |
-|-----|----------|-------|
-| `-u` / `--user` | yes | email or phone |
-| `-p` / `--password` | yes | plaintext; encrypted with PWD key before POST |
-| `--phone` | no | `loginType=3`; default email `loginType=2` |
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `-u` / `--user` | 是 | 邮箱或手机号 |
+| `-p` / `--password` | 是 | 明文密码 |
+| `--phone` | 否 | 手机登录（`loginType=3`）；默认邮箱 |
 
 ```bash
-cargo run -- login -u you@example.com -p 'secret'
-cargo run -- login -u 13800138000 -p 'secret' --phone
-cargo run -- --base https://appapi.qiuitoy.com login -u you@example.com -p 'secret'
+qiui login -u you@example.com -p 'secret'
+qiui login -u 13800138000 -p 'secret' --phone
 ```
 
-Writes `base_url`, `token`, `uid`, `user_id`, `nickname`, `user_name`. Prints `saved=<path>`. Next: `whoami` / `devices`.
+成功会打印 `token` / `saved=<config 路径>`。
 
 ### `whoami`
 
-Purpose: dump saved identity (local only, no network).
+只读本地 config，不联网。
 
 ```bash
-cargo run -- whoami
+qiui whoami
 ```
 
 ### `devices`
 
-Purpose: list bound toys (`getUserBindingToyDevices`). Needs token.
+列出绑定设备（需 token）。从 JSON 里取 `toyUid`。
 
 ```bash
-cargo run -- devices
-cargo run -- --token "$QIUI_TOKEN" devices
+qiui devices
 ```
-
-Pretty JSON → take `toyUid` for token/lock commands.
 
 ### `get-toy-token` / `close-lock`
 
-Purpose: cloud → **plaintext BLE hex** (one line stdout).
-
-| Arg | Required |
-|-----|----------|
-| `--toy-uid` | yes |
+向云端要 **一行明文 BLE hex**（stdout），供 `write` 使用。
 
 ```bash
-HEX=$(cargo run -q -- get-toy-token --toy-uid '<toyUid>')
-HEX=$(cargo run -q -- close-lock --toy-uid '<toyUid>')
-cargo run -- write --mock --address AA:BB:CC:DD:EE:FF --hex "$HEX"
+HEX=$(qiui get-toy-token --toy-uid '<toyUid>')
+HEX=$(qiui close-lock --toy-uid '<toyUid>')
 ```
-
-Next: `write --address … --hex …` (real or `--mock`).
 
 ### `decry-notify`
 
-Purpose: cloud decrypt of notify hex (`decryBluetoothCommand`). Needs token.
+把设备 notify 的 hex 交给云端解密。
 
 ```bash
-cargo run -- decry-notify --hex '<notify_hex>'
+qiui decry-notify --hex '<notify_hex>'
 ```
 
-### `crypto` (local, offline)
+### `crypto`（本地离线）
 
-| Subcommand | Arg | Notes |
-|------------|-----|-------|
-| `encrypt-api` | `<TEXT>` | API body → Base64 |
-| `decrypt-api` | `<B64>` | API ciphertext |
-| `encrypt-pwd` | `<TEXT>` | login password field |
-| `encrypt-bt` | `<TEXT>` | BT command key → Base64 |
-| `decrypt-bt` | `<B64>` | inverse of encrypt-bt |
+调试用：加解密 API / 密码 / BT 载荷。日常控锁一般不需要。
 
 ```bash
-cargo run -q -- crypto encrypt-api '{"hello":"world"}'
-cargo run -q -- crypto encrypt-pwd 'secret'
+qiui crypto encrypt-api '{"hello":"world"}'
+qiui crypto encrypt-pwd 'secret'
 ```
 
 ### `profiles`
 
-Lists GATT profiles (`name`, service/write/notify). Valid `--profile` values for scan/write.
+列出可用 GATT profile 名（`scan` / `write` 的 `--profile`）。默认 `cellmate`。
 
 ```bash
-cargo run -q -- profiles
+qiui profiles
 ```
-
-Default profile name for scan/write: `cellmate`.
 
 ### `scan`
 
-| Arg | Default |
-|-----|---------|
+| 参数 | 默认 |
+|------|------|
 | `--seconds` | `5` |
 | `--profile` | `cellmate` |
 
-Needs BLE adapter. Prints `addr\tname` lines.
+需要本机 BLE 适配器。输出 `addr\tname`。
 
 ```bash
-cargo run -- scan --seconds 10 --profile cellmate
+qiui scan --seconds 10
 ```
 
 ### `write`
 
-| Arg | Required | Default | Notes |
-|-----|----------|---------|-------|
-| `--address` | yes | — | MAC |
-| `--hex` | yes | — | plaintext hex from cloud |
-| `--profile` | no | `cellmate` | must exist in `profiles` |
-| `--wait-ms` | no | `3000` | notify wait; `0` = skip |
-| `--mock` | no | off | `MockSession`; no adapter |
+| 参数 | 必填 | 默认 | 说明 |
+|------|------|------|------|
+| `--address` | 是 | — | 设备 MAC |
+| `--hex` | 是 | — | 云端返回的明文 hex |
+| `--profile` | 否 | `cellmate` | 见 `profiles` |
+| `--wait-ms` | 否 | `3000` | 等 notify；`0` 跳过 |
+| `--mock` | 否 | 关 | 无硬件冒烟 |
 
 ```bash
-cargo run -- write --mock --address AA:BB:CC:DD:EE:FF --hex 06010101000000000000000000000000
-cargo run -- write --address AA:BB:CC:DD:EE:FF --hex "$HEX" --wait-ms 5000
+qiui write --mock --address AA:BB:CC:DD:EE:FF --hex 06010101000000000000000000000000
+qiui write --address AA:BB:CC:DD:EE:FF --hex "$HEX" --wait-ms 5000
 ```
 
-Real path prints `wrote=` and optional `notify=`; mock prints `notify_mock=`.
+## 常见问题
 
-## Install this skill into Codex
+| 现象 | 处理 |
+|------|------|
+| 提示缺 token | `qiui login …` 或设 `QIUI_TOKEN` / `--token` |
+| API 主机不对 | 先 `qiui discover-api`，或 `--base https://appapi.qiuitoy.com` |
+| 无 BLE 适配器 | 用 `write --mock`；真机需系统蓝牙权限（Linux 常需 BlueZ） |
+| Windows 装好找不到命令 | 把 `%LOCALAPPDATA%\qiui\bin` 加进用户 PATH 后重开终端 |
+| 只要二进制、不要 skill | `install.sh --bin-only` / `install.ps1 -BinOnly` |
 
-Canonical copy: repo `.codex/skills/qiui/`.
+## 参考
 
-```bash
-ln -sfn "$(git rev-parse --show-toplevel)/.codex/skills/qiui" \
-  "${CODEX_HOME:-$HOME/.codex}/skills/qiui"
-```
-
-Destination: `${CODEX_HOME:-$HOME/.codex}/skills/qiui`.
-
-## Out of scope (do not expand unless asked)
-
-- Full mobile App UI parity / non-Cellmate product surfaces
-- Bundling third-party app source dumps into the crate
-- Re-adding project markdown as the protocol source of truth
+- 用户文档：仓库 [README.md](https://github.com/CntierTeam/QIUI/blob/main/README.md)
+- 协议背景（密钥 / feign / GATT）：[references/protocol.md](references/protocol.md)
+- Release：https://github.com/CntierTeam/QIUI/releases

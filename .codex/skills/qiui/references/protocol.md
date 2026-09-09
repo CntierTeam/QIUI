@@ -1,6 +1,8 @@
 # QIUI protocol reference
 
-Protocol reference for the independent `qiui` CLI (compatible with QIUI/Cellmate cloud API + BLE; app protocol version `7.0.51`). Read when changing crypto, feign paths, or GATT profiles.
+Background for the independent `qiui` CLI (QIUI/Cellmate cloud + BLE; app protocol `7.0.51`).
+
+**日常使用先看 [SKILL.md](../SKILL.md)**（安装、登录、命令配方）。本文件只在需要理解云端加解密 / feign / GATT 时再读；不是开发规范。
 
 ## API crypto (`EncryptUtil`)
 
@@ -68,7 +70,7 @@ Saves `token`, `uid`, `userId`, `nickname`, `user_name`, `base_url` to `~/.confi
 | `crypto …` | local `src/crypto.rs` only |
 | `profiles` / `scan` / `write` | GATT in `src/protocol/` + BLE I/O |
 
-User-facing recipes: repo `README.md` and skill `SKILL.md` (not duplicated here).
+User-facing recipes: skill `SKILL.md` and repo `README.md` (not duplicated here).
 
 Cellmate cloud bodies:
 

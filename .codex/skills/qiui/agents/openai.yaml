@@ -1,6 +1,6 @@
 interface:
   display_name: "QIUI Cellmate"
-  short_description: "Independent QIUI API/BLE CLI guide"
-  default_prompt: "Use $qiui to work on the independent QIUI Cellmate CLI (build, mock BLE smoke, crypto, or protocol changes)."
+  short_description: "Use qiui CLI: login, toys, BLE write"
+  default_prompt: "Use $qiui to help me operate the QIUI/Cellmate CLI (install, login, devices, get-toy-token/close-lock, scan/write). Prefer the installed qiui binary; do not treat this as a develop-the-crate task unless I ask to change code."
 policy:
   allow_implicit_invocation: true

@@ -4,7 +4,7 @@
 
 仓库：[CntierTeam/QIUI](https://github.com/CntierTeam/QIUI)
 
-协议细节不在本仓库文档中；见 Codex skill **`$qiui`**（仓库内 `.codex/skills/qiui/`，含 `references/protocol.md`）。
+协议细节与命令配方见 Codex skill **`$qiui`**（**使用向**：安装 / 登录 / 控锁；仓库内 `.codex/skills/qiui/`）。更深的加解密与 GATT 表在 skill 的 `references/protocol.md`。
 
 ## 一键安装（从 GitHub Release）
 
@@ -334,10 +334,10 @@ git tag v0.1.1
 git push origin v0.1.1
 ```
 
-## 协议与开发
+## 协议与 skill
 
-- Codex skill：`$qiui` → `.codex/skills/qiui/SKILL.md`
-- 密钥、主机、GATT、云→hex 路径：`.codex/skills/qiui/references/protocol.md`
+- Codex skill（**怎么用 `qiui`**）：`$qiui` → `.codex/skills/qiui/SKILL.md`
+- 协议背景（密钥、feign、GATT）：`.codex/skills/qiui/references/protocol.md`
 - 请勿在仓库再维护长版 `docs/PROTOCOL.md`
 
 ## License
