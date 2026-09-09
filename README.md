@@ -369,7 +369,7 @@ git push origin v0.2.1
 
 ## Skill
 
-Codex skill **`$qiui`**：产品 CLI 用法（安装、登录、控设备）。路径：`.codex/skills/qiui/SKILL.md`。
+Codex skill **`$qiui`**：操作员模式——代跑全部产品动作（登录、上锁/开锁、电击、振动、摇摆、扫描写入等），不是只拼命令。路径：`.codex/skills/qiui/SKILL.md`。
 
 ## License
 
