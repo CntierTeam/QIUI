@@ -1,6 +1,6 @@
 interface:
   display_name: "QIUI"
-  short_description: "代跑 qiui：电击/上锁/扫写"
-  default_prompt: "按 $qiui 当操作员：用户要电击/上锁/控设备时，用 shell 直接执行 qiui（devices→run→scan/write），不要只拼命令或发 SAMPLE 教程。缺凭证/toyUid/MAC 再问一句然后继续跑。"
+  short_description: "代跑 qiui 全产品全动作"
+  default_prompt: "按 $qiui 当操作员：用户任何控设备需求（登录、列设备、上锁/开锁、电击、振动、摇摆、强度、扫描、写入、解密等）都用 shell 直接执行 qiui，不要只拼命令或 SAMPLE。缺凭证/toyUid/MAC/hex 再问一句然后继续跑。"
 policy:
   allow_implicit_invocation: true
