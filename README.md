@@ -4,7 +4,7 @@
 
 仓库：[CntierTeam/QIUI](https://github.com/CntierTeam/QIUI)
 
-产品用法见 Codex skill **`$qiui`**（只讲怎么用 CLI）。完整命令说明见下文。
+产品用法见 Codex skill **`$qiui`**（多产品：Cellmate / KeyPod / PearFlower / 项圈等）。完整命令见下文。
 
 ## 一键安装（从 GitHub Release）
 
@@ -72,9 +72,9 @@ cargo run -- <子命令>
 
 `--verbose`：把日志级别提到 `debug`（默认 `info`）。
 
-需登录态的命令：`devices`、`get-toy-token`、`close-lock`、`decry-notify`。缺 token 时会提示先 `login` 或传 `--token` / `QIUI_TOKEN`。
+需登录态的命令：`devices`、`run`、`get-toy-token`、`close-lock`、`decry-notify`。缺 token 时会提示先 `login` 或传 `--token` / `QIUI_TOKEN`。
 
-典型流程：`discover-api` → `login` → `whoami` / `devices` → `get-toy-token` / `close-lock` → `write`。
+典型流程：`discover-api` → `login` → `devices` → `qiui products` → `qiui run -p <产品> -a <动作>` → `write -p <产品>`。
 
 ---
 
@@ -150,11 +150,43 @@ qiui --token '<token>' devices   # 临时覆盖 token
 
 **输出**：绑定设备 JSON（pretty）。从中取玩具的 `toyUid`（或等价字段）供后续命令使用。
 
-**下一步**：`get-toy-token --toy-uid …` 或 `close-lock --toy-uid …`。
+**下一步**：`qiui products` 选产品，再 `qiui run -p … -a … --toy-uid …`。
 
 ---
 
-### `get-toy-token` — 云端下发会话类 BLE 明文 hex
+### `products` — 列出产品与云端动作
+
+```bash
+qiui products
+```
+
+含 Cellmate、KeyPod、PearFlower、GenMetal、PulseBird、BeatPat、**电击项圈** 等；每项下面是可用 `-a` 动作。
+
+---
+
+### `run` — 按产品执行云端动作（得到 BLE hex）
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `-p` / `--product` | 是 | 产品 id（见 `products`） |
+| `-a` / `--action` | 是 | 动作名，如 `token` / `lock` / `shock` |
+| `--toy-uid` | 是 | 绑定设备 uid |
+| `--hex` | 条件 | `decry` 与项圈 `unlock`/`decrypt` 需要 |
+
+```bash
+HEX=$(qiui run -p cellmate -a token --toy-uid '<toyUid>')
+HEX=$(qiui run -p cellmate -a shock --toy-uid '<toyUid>')
+HEX=$(qiui run -p keypod-metal -a lock --toy-uid '<toyUid>')
+HEX=$(qiui run -p pearflower3 -a vibrate --toy-uid '<toyUid>')
+qiui run -p collar -a unlock --toy-uid '<toyUid>' --hex '<命令hex>'
+qiui write -p cellmate --address <MAC> --hex "$HEX"
+```
+
+stderr 会提示建议的 `write -p …`。
+
+---
+
+### `get-toy-token` — Cellmate 会话 hex（`run -p cellmate -a token` 别名）
 
 | 参数 | 必填 | 说明 |
 |------|------|------|
@@ -288,18 +320,19 @@ qiui decry-notify --hex '<notify_hex>'
 # 1) 解析 API + 登录
 qiui discover-api
 qiui login -u you@example.com -p 'secret'
-qiui whoami
-
-# 2) 取设备 → 取云端 BLE hex → 写入（或 mock）
 qiui devices
-HEX=$(qiui get-toy-token --toy-uid '<toyUid>')
-qiui write --mock --address AA:BB:CC:DD:EE:FF --hex "$HEX"
-# 有硬件时：
-# qiui scan --seconds 8
-# qiui write --address <MAC> --hex "$HEX"
+qiui products
 
-# 3) 关锁类命令同理
-# qiui close-lock --toy-uid '<toyUid>'
+# 2) 按产品取云端 BLE hex → 写入（或 mock）
+HEX=$(qiui run -p cellmate -a token --toy-uid '<toyUid>')
+qiui write -p cellmate --mock --address AA:BB:CC:DD:EE:FF --hex "$HEX"
+# 有硬件时：
+# qiui scan -p cellmate --seconds 8
+# qiui write -p cellmate --address <MAC> --hex "$HEX"
+
+# 其它产品示例
+# HEX=$(qiui run -p keypod-metal -a unlock --toy-uid '<toyUid>')
+# HEX=$(qiui run -p pearflower3 -a shock --toy-uid '<toyUid>')
 ```
 
 环境覆盖示例：
@@ -330,8 +363,8 @@ Release 产物：
 打 tag 发版：
 
 ```bash
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 ## Skill

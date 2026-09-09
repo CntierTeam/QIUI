@@ -1,19 +1,19 @@
 ---
 name: qiui
 description: >-
-  Product usage for the QIUI (Cellmate) CLI `qiui`: install, login, list toys,
-  cloud BLE commands, scan/write. Trigger on: QIUI, Cellmate, qiui, 登录,
-  get-toy-token, close-lock, devices, write, scan.
+  Product usage for QIUI CLI `qiui`: Cellmate lock, KeyPod, PearFlower, GenMetal,
+  PulseBird, BeatPat, electric collar (项圈). Trigger on: QIUI, Cellmate, KeyPod,
+  PearFlower, 项圈, PulseBird, get-toy-token, qiui products, qiui run.
 license: GPL-3.0-only
 metadata:
-  short-description: QIUI CLI 产品用法
+  short-description: QIUI 多产品 CLI 用法
 ---
 
 # QIUI
 
-产品：**`qiui`** — QIUI（Cellmate）云端账号 + 蓝牙设备控制命令行。
+产品：**`qiui`** — QIUI 云端账号 + 多设备蓝牙控制 CLI。
 
-本 skill **只说明怎么用 CLI**。不要讲源码、协议实现或开发流程。
+本 skill **只讲怎么用命令**，不讲源码/协议开发。
 
 ## 安装
 
@@ -27,88 +27,102 @@ curl -fsSL https://raw.githubusercontent.com/CntierTeam/QIUI/main/scripts/instal
 irm https://raw.githubusercontent.com/CntierTeam/QIUI/main/scripts/install.ps1 | iex
 ```
 
-装好后确认：
-
 ```bash
 qiui --help
-qiui profiles
+qiui products    # 看支持哪些产品与动作
 ```
 
-Unix 默认：`~/.local/bin/qiui`（需在 `PATH`）。  
-Windows 默认：`%LOCALAPPDATA%\qiui\bin\qiui.exe`。
-
-指定版本：`--version v0.1.2` / `-Version v0.1.2`；覆盖已有安装加 `--force` / `-Force`。
-
-## 登录与配置
-
-会话保存在 `~/.config/qiui/config.toml`（可用环境变量 `QIUI_BASE`、`QIUI_TOKEN` 或全局参数 `--base`、`--token` 覆盖）。
+## 登录
 
 ```bash
 qiui discover-api
-qiui login -u you@example.com -p '你的密码'
-qiui login -u 13800138000 -p '你的密码' --phone   # 手机号
+qiui login -u you@example.com -p '密码'
+qiui login -u 13800138000 -p '密码' --phone
 qiui whoami
+qiui devices          # 绑定列表 → 记下 toyUid / 蓝牙地址
 ```
 
-缺登录态时，先 `login`，再跑需要账号的命令。
+会话：`~/.config/qiui/config.toml`；可用 `QIUI_TOKEN` / `--token` 覆盖。
 
-## 日常用法
+## 产品一览
+
+先跑 `qiui products`。当前云端动作覆盖：
+
+| 产品 id | 是什么 | 常用动作 | 默认 BLE profile |
+|---------|--------|----------|------------------|
+| `cellmate` | Cellmate 贞操锁 Gen2/Gen3 | `token` `close-lock` `shock` `decry` | `cellmate` |
+| `keypod-metal` | KeyPod Metal 金属钥匙舱 | `token` `lock` `unlock` `decry` | `fee5` |
+| `keypod` | KeyPod / KeyPod Pro | `token` `lock` `unlock` `decry` | `fee5` |
+| `pearflower3` | PearFlower Three | `token` `lock` `unlock` `shock` `vibrate` `stop-shock` `stop-vibrate` `decry` | `pearflower3` |
+| `pearflower` | PearFlower 旧款 | `token` `shock` `jitter` `stop` `decry` | `pearflower3` |
+| `shake-metal` | GenMetal 震动金属锁 | `token` `lock` `unlock` `shake` `stop` `decry` | `ae3` |
+| `metal-lock` | Metal Lock | `token` `lock` `unlock` `decry` | `ae3` |
+| `pulsebird` | PulseBird | `token` `decry` | `fee5` |
+| `beatpat` | BeatPat / StrikePad | `token` `strength` `strength-off` `decry` | `8ac0` |
+| `collar` | **电击项圈** | `unlock` `decrypt`（都要 `--hex`） | `fee5` |
+
+`decry` / 项圈动作需要把设备回包 hex 用 `--hex` 交给云端。
+
+## 控设备流程
 
 ```bash
-# 1. 看绑定设备，记下 toyUid
-qiui devices
+# 1) 云端要一条可写入的 hex
+HEX=$(qiui run -p cellmate -a token --toy-uid '<toyUid>')
+HEX=$(qiui run -p cellmate -a close-lock --toy-uid '<toyUid>')
+HEX=$(qiui run -p cellmate -a shock --toy-uid '<toyUid>')
 
-# 2. 向云端要一条蓝牙写入数据（stdout 一行 hex）
-HEX=$(qiui get-toy-token --toy-uid '<toyUid>')
-# 或关锁类：
-# HEX=$(qiui close-lock --toy-uid '<toyUid>')
+HEX=$(qiui run -p keypod-metal -a lock --toy-uid '<toyUid>')
+HEX=$(qiui run -p pearflower3 -a vibrate --toy-uid '<toyUid>')
+HEX=$(qiui run -p shake-metal -a shake --toy-uid '<toyUid>')
 
-# 3. 扫描附近设备（可选）
-qiui scan --seconds 8
+# 2) 扫描（按产品选 profile）
+qiui scan -p cellmate --seconds 8
+qiui scan -p collar --seconds 8
 
-# 4. 写入设备（把 <MAC> 换成 scan 看到的地址）
-qiui write --address <MAC> --hex "$HEX"
+# 3) 写入
+qiui write -p cellmate --address <MAC> --hex "$HEX"
+# 无硬件冒烟：
+qiui write -p cellmate --mock --address AA:BB:CC:DD:EE:FF --hex "$HEX"
 ```
 
-无真机时可用模拟写入验证命令是否跑通：
+### 电击项圈
+
+项圈走 `electricShockRecord`：把本地/回包 hex 交给云端。
 
 ```bash
-qiui write --mock --address AA:BB:CC:DD:EE:FF --hex "$HEX"
+qiui run -p collar -a unlock --toy-uid '<toyUid>' --hex '<命令hex>'
+qiui run -p collar -a decrypt --toy-uid '<toyUid>' --hex '<命令hex>'
+```
+
+### Cellmate 快捷别名
+
+```bash
+qiui get-toy-token --toy-uid '<toyUid>'     # = run -p cellmate -a token
+qiui close-lock --toy-uid '<toyUid>'        # = run -p cellmate -a close-lock
+qiui decry-notify --hex '<notify_hex>'      # = run -p cellmate -a decry --hex …
 ```
 
 ## 命令一览
 
 | 命令 | 做什么 |
 |------|--------|
-| `discover-api` | 更新云端 API 地址 |
-| `login` | 邮箱/手机密码登录并保存会话 |
-| `whoami` | 查看本地已保存账号 |
-| `devices` | 列出绑定玩具（需登录） |
-| `get-toy-token` | 云端生成一条蓝牙写入 hex（需登录，`--toy-uid`） |
-| `close-lock` | 云端生成关锁类蓝牙 hex（需登录，`--toy-uid`） |
-| `decry-notify` | 用云端解密设备回包 hex（需登录，`--hex`） |
-| `profiles` | 列出蓝牙 profile 名称 |
-| `scan` | 扫描蓝牙设备（`--seconds`，`--profile`，默认 `cellmate`） |
-| `write` | 连接并写入 hex（`--address`、`--hex`；可选 `--wait-ms`、`--mock`、`--profile`） |
-| `crypto …` | 本地加解密小工具（一般日常控设备用不到） |
+| `discover-api` / `login` / `whoami` / `devices` | 账号与绑定 |
+| `products` | 列出产品与动作 |
+| `run -p … -a … --toy-uid …` | 云端动作 → hex（或 JSON） |
+| `scan` / `write` | 蓝牙扫/写；`-p <产品>` 选 profile |
+| `profiles` | 底层 GATT profile 名 |
+| `crypto …` | 本地加解密小工具 |
 
-全局：
-
-```bash
-qiui --verbose <命令>
-qiui --token '…' devices
-```
-
-不确定参数时：`qiui <命令> --help`。
+全局：`qiui --verbose …`、`qiui --token '…' …`。不确定就 `qiui <命令> --help`。
 
 ## 常见问题
 
 | 情况 | 做法 |
 |------|------|
-| 提示没有 token | `qiui login …` |
-| 连不上 API | `qiui discover-api`，或 `--base https://appapi.qiuitoy.com` |
-| 找不到 `qiui` | 检查安装目录是否在 `PATH`，重开终端 |
-| 没有蓝牙硬件 | 用 `write --mock`；真机需系统蓝牙可用 |
+| 缺 token | `qiui login …` |
+| 不知道产品 id | `qiui products` |
+| write 连不上特征 | 换对的 `-p`（产品）或 `--profile` |
+| 无蓝牙硬件 | `write --mock` |
 
-更多示例见：https://github.com/CntierTeam/QIUI/blob/main/README.md  
-下载页：https://github.com/CntierTeam/QIUI/releases
+README：https://github.com/CntierTeam/QIUI  
+Release：https://github.com/CntierTeam/QIUI/releases

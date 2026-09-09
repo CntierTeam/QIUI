@@ -46,6 +46,7 @@ jobs:
           cargo build --locked --quiet
           BIN=./target/debug/qiui
           if [[ -f "${BIN}.exe" ]]; then BIN="${BIN}.exe"; fi
+          "${BIN}" products >/dev/null
           "${BIN}" profiles >/dev/null
           HEX="$("${BIN}" crypto encrypt-api '{"hello":"world"}')"
           "${BIN}" crypto decrypt-api "$HEX" >/dev/null

@@ -183,44 +183,77 @@ impl Client {
     /// Ask cloud for a BLE session token command (Cellmate). Returns plaintext hex for GATT write
     /// after `BLUETOOTH_COMMAND` decrypt.
     pub fn cellmate_get_toy_token(&self, toy_uid: &str) -> Result<String, ApiError> {
-        let toy = format!(
-            "{}_{}",
-            toy_uid,
-            chrono::Utc::now().timestamp_millis()
-        );
-        let body = json!({
-            "toyUid": crypto::encrypt_timestamp_field(&toy)?,
-        });
-        let env: ApiEnvelope<Value> =
-            self.post_encrypted("/feign/toyCellmateBluetooth/getToyToken", &body)?;
-        extract_bt_command(env)
+        self.bt_cmd_toy_uid("/feign/toyCellmateBluetooth/getToyToken", toy_uid)
     }
 
     pub fn cellmate_close_lock(&self, toy_uid: &str) -> Result<String, ApiError> {
-        let toy = format!(
-            "{}_{}",
-            toy_uid,
-            chrono::Utc::now().timestamp_millis()
-        );
-        let body = json!({
-            "toyUid": crypto::encrypt_timestamp_field(&toy)?,
-        });
-        let env: ApiEnvelope<Value> =
-            self.post_encrypted("/feign/toyCellmateBluetooth/toyCloseLock", &body)?;
-        extract_bt_command(env)
+        self.bt_cmd_toy_uid("/feign/toyCellmateBluetooth/toyCloseLock", toy_uid)
     }
 
     /// Upload notify hex for server-side decrypt.
     pub fn cellmate_decry_command(&self, lock_command_hex: &str) -> Result<Value, ApiError> {
+        self.bt_decry(
+            "/feign/toyCellmateBluetooth/decryBluetoothCommand",
+            lock_command_hex,
+        )
+    }
+
+    /// Generic cloud→BLE hex: body `{ toyUid: TIME_STAMP(uid_millis) }`, data decrypt with BT key.
+    pub fn bt_cmd_toy_uid(&self, path: &str, toy_uid: &str) -> Result<String, ApiError> {
+        let toy = format!("{}_{}", toy_uid, chrono::Utc::now().timestamp_millis());
+        let body = json!({
+            "toyUid": crypto::encrypt_timestamp_field(&toy)?,
+        });
+        let env: ApiEnvelope<Value> = self.post_encrypted(path, &body)?;
+        extract_bt_command(env)
+    }
+
+    /// Generic notify decrypt: body `{ lockCommand: BT(hex) }`.
+    pub fn bt_decry(&self, path: &str, lock_command_hex: &str) -> Result<Value, ApiError> {
         let body = json!({
             "lockCommand": crypto::encrypt_bt_command(lock_command_hex)?,
         });
-        let env: ApiEnvelope<Value> =
-            self.post_encrypted("/feign/toyCellmateBluetooth/decryBluetoothCommand", &body)?;
+        let env: ApiEnvelope<Value> = self.post_encrypted(path, &body)?;
         Ok(env.data.unwrap_or(Value::Null))
     }
-}
 
+    /// Electric-shock collar (`electricShockRecord/*`): needs toyUid + lockCommand hex list.
+    pub fn collar_record_cmd(
+        &self,
+        path: &str,
+        toy_uid: &str,
+        lock_command_hex: &str,
+    ) -> Result<Value, ApiError> {
+        let toy = format!("{}_{}", toy_uid, chrono::Utc::now().timestamp_millis());
+        let body = json!({
+            "toyUid": crypto::encrypt_timestamp_field(&toy)?,
+            "lockCommand": [crypto::encrypt_bt_command(lock_command_hex)?],
+            "lockType": 1,
+        });
+        let env: ApiEnvelope<Value> = self.post_encrypted(path, &body)?;
+        if let Some(state) = &env.state {
+            if state.eq_ignore_ascii_case("failed") {
+                return Err(ApiError::Business {
+                    state: state.clone(),
+                    message: env.message.unwrap_or_default(),
+                });
+            }
+        }
+        // Prefer plaintext hex when the envelope carries an encrypted BT string.
+        if let Some(data) = env.data.clone() {
+            if let Ok(hex) = extract_bt_command(ApiEnvelope {
+                state: env.state.clone(),
+                message: env.message.clone(),
+                data: Some(data.clone()),
+                time_stamp: env.time_stamp.clone(),
+            }) {
+                return Ok(Value::String(hex));
+            }
+            return Ok(data);
+        }
+        Ok(Value::Null)
+    }
+}
 fn extract_bt_command(env: ApiEnvelope<Value>) -> Result<String, ApiError> {
     if let Some(state) = &env.state {
         if state.eq_ignore_ascii_case("failed") {
